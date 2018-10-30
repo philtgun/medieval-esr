@@ -1,5 +1,10 @@
 import csv
 import numpy as np
+import pandas as pd
+import itertools as it
+import venn
+import matplotlib.pyplot as plt
+
 
 default_infile = 'data/tracks_tags.csv'
 default_outfile = 'results/stats.csv'
@@ -11,12 +16,12 @@ accepted_types = {
     'vartags'
 }
 accepted_sources = {
-    'auto2',
-    'bmat',
     'team',
-    'auto1',
     'artist',
-    'mturk'
+    # 'bmat',
+    # 'mturk'
+    # 'auto1',
+    # 'auto2',
 }
 
 
@@ -63,6 +68,19 @@ def print_tags(tags_map):
 
 if __name__ == '__main__':
     data, total = read_data()
-    print('Total: {}'.format(total))
-    tags, counts = get_top_tags(data)
-    export_stats(tags, counts)
+    df = pd.read_csv('results/stats_intersected.csv')
+    quads = {1: 'I', 2: 'II', 3: 'III', 4: 'IV'}
+    tracks = {quad_name: set() for quad_name in quads.values()}
+    for quad_i, quad_name in quads.items():
+        for tag in df[df.Quad == quad_i].Tags:
+            tracks[quad_name] |= data[tag]
+        print(quad_name, len(tracks[quad_name]))
+
+    venn.venn(tracks)
+    plt.savefig('results/quads.png', bbox_inches='tight')
+    plt.title('Tracks ')
+    plt.show()
+
+    # print('Total: {}'.format(total))
+    # tags, counts = get_top_tags(data)
+    # export_stats(tags, counts)
