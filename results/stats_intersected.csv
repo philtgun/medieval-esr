@@ -1,4 +1,4 @@
-,Tag,Count,Valence,Arousal,Quadrant
+,tag,count,valence,arousal,quadrant
 0,happy,3332,0.87,0.26,1
 1,dark,2803,0.02,-0.23,4
 2,energetic,2304,0.64,0.27,1

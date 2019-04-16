@@ -7,6 +7,10 @@
 
 ## Scripts
 
-1. `extract.py`
-2. `intersect.py`
-3. `analyse.py`
+```bash
+extract.py
+intersect.py
+plot.py -l  # all without labels
+plot.py -n 100 -o top100.png  # top100 labels
+analyse.py
+```

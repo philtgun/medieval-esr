@@ -1,29 +1,14 @@
+import argparse
 import pandas as pd
-import matplotlib.pyplot as plt
-
-dictionary_filename = 'data/BRM-emot-submit.csv'
-default_infile = 'results/stats.csv'
-default_outfile = 'results/stats_intersected.csv'
-
-
-def get_words(filename=dictionary_filename):
-    df = pd.read_csv(filename)
-    return set(df.Word)
-
-
-def get_intersection(words, filename=default_infile):
-    df = pd.read_csv(filename)
-    tags = set(df.Tags)
-    common_tags = tags.intersection(words)
-    print('{} > {}'.format(len(tags), len(common_tags)))
 
 
 def scale_convert(x):
-    """ Transforms from 1:9 scale to -1:1"""
+    """Transforms from 1:9 scale to -1:1"""
     return ((x - 1) / 8 - 0.5) * 2
 
 
 def get_quadrant(valence, arousal):
+    """Transforms (arousal, valence) pair to quadrant id"""
     if valence > 0 and arousal > 0:
         return 1
     if valence < 0 < arousal:
@@ -34,53 +19,45 @@ def get_quadrant(valence, arousal):
 
 
 def get_df_value(df, name):
+    """Read name.Mean.Sum from dataframe and convert to -1:1 scale"""
     return scale_convert(df.iloc[0][name + '.Mean.Sum'])
 
 
-def intersect(dict_filename=dictionary_filename, tags_filename=default_infile):
-    dict_df = pd.read_csv(dict_filename)
+def intersect(tags_filename, emotion_filename):
+    """Reads data from tags file, intersects and and augments it with emotion data"""
+    emotion_df = pd.read_csv(emotion_filename)
     tags_df = pd.read_csv(tags_filename)
-    out_df = pd.DataFrame(columns=['Tag', 'Count', 'Valence', 'Arousal', 'Quadrant'])
+    result_df = pd.DataFrame(columns=['tag', 'count', 'valence', 'arousal', 'quadrant'])
 
     print('Input tags: {}'.format(len(tags_df)))
     for row in tags_df.itertuples():
-        words_df = dict_df[dict_df.Word == row.Tag]
-
-        if len(words_df > 0):
+        words_df = emotion_df[emotion_df.Word == row.tag]
+        if len(words_df) > 0:
             valence = get_df_value(words_df, 'V')
             arousal = get_df_value(words_df, 'A')
-            out_df = out_df.append({
-                'Tag': row.Tag,
-                'Count': row.Count,
-                'Valence': valence,
-                'Arousal': arousal,
-                'Quadrant': get_quadrant(valence, arousal)
+            result_df = result_df.append({
+                'tag': row.tag,
+                'count': row.count,
+                'valence': valence,
+                'arousal': arousal,
+                'quadrant': get_quadrant(valence, arousal)
             }, ignore_index=True)
 
-    print('Output tags: {}'.format(len(out_df)))
-    return out_df
-
-
-def plot_quadrants(df, n=None, show=False):
-    plt.scatter(df.Valence, df.Arousal, df.Count / 15, alpha=0.7)
-    for i, tag in enumerate(df.Tag):
-        plt.text(df.Valence.iloc[i] - 0.05, df.Arousal.iloc[i], tag, fontsize=8)
-
-    plt.ylim([-1, 1])
-    plt.xlim([-1, 1])
-    plt.hlines(0, -1, 1, linestyles=':')
-    plt.vlines(0, -1, 1, linestyles=':')
-    plt.xlabel('Valence')
-    plt.ylabel('Arousal')
-    plt.title('Distribution of tags' + ('(top {})'.format(n) if n else ''))
-    plt.savefig('results/distribution.png')
-    if show:
-        plt.show()
+    print('Output tags: {}'.format(len(result_df)))
+    return result_df
 
 
 if __name__ == '__main__':
-    """This script is supposed to be executed after the extraction of tags"""
-    df = intersect()
-    df.to_csv(default_outfile, float_format='%.2f')
-    plot_quadrants(df)
+    parser = argparse.ArgumentParser(description='Intersects the top Jamendo tags with Warriner\'s list, adds '
+                                                 'arousal-valence values and quadrant',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-i', '--input', default='results/stats.csv',
+                        help='Input CSV file with top Jamendo tags (rank, tag, count)')
+    parser.add_argument('-e', '--emotion', default='data/BRM-emot-submit.csv',
+                        help='Input CSV file with word emotion values (Word, V.Mean.Sum, A.Mean.Sum)')
+    parser.add_argument('-o', '--output', default='results/stats_intersected.csv',
+                        help='Output CSV file (rank, tag, count, valence, arousal, quadrant)')
+    args = parser.parse_args()
 
+    result = intersect(args.input, args.emotion)
+    result.to_csv(args.output, float_format='%.2f')

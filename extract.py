@@ -36,7 +36,7 @@ def get_tags_dict(filename, types, sources):
 
 
 def get_top_tags(tags_dict):
-    """Takes dictionary, orders keys according to the length of values, and returns table: tag, len(value)"""
+    """Takes dictionary, orders keys according to the length of values, and returns dataframe: tag, len(value)"""
     df = pd.DataFrame()
     df['tag'] = list(tags_dict.keys())
     df['count'] = [len(vals) for vals in tags_dict.values()]
@@ -45,24 +45,20 @@ def get_top_tags(tags_dict):
     return df
 
 
-def print_tags(tags_map):
-    for tag_value, track_ids in tags_map.items():
-        print('{}: {}'.format(tag_value, len(track_ids)))
-
-
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Computes the top tags from Jamendo metadata.')
+    parser = argparse.ArgumentParser(description='Computes the top tags from Jamendo metadata.',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-i', '--input', default='data/tracks_tags.csv',
                         help='Input CSV file that is formatted like this: trackId, type, value, source')
     parser.add_argument('-o', '--output', default='results/stats.csv',
-                        help='Input CSV file that is formatted like this: trackId, type, value, source')
+                        help='Output CSV file that is formatted like this: rank, tag, count')
     parser.add_argument('-t', '--types', nargs='+', choices=TYPES, default=['vartags'],
                         help='Types of metadata that are processed')
     parser.add_argument('-s', '--sources', nargs='+', choices=SOURCES, default=['team', 'artist'],
                         help='Types of metadata that are considered')
     args = parser.parse_args()
 
-    tags_dict, total = get_tags_dict(args.input, args.types, args.sources)
-    result = get_top_tags(tags_dict)
+    data, total = get_tags_dict(args.input, args.types, args.sources)
+    result = get_top_tags(data)
     result.to_csv(args.output)
     print("Extracted {} tags".format(len(result)))
