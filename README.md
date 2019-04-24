@@ -10,7 +10,8 @@
 ```bash
 extract.py
 intersect.py
-plot.py -l  # all without labels
-plot.py -n 100 -o top100.png  # top100 labels
+plot.py 
+plot.py -l -o distribution_nolables.png  # all without labels
+plot.py -n 30 -o distribution_top30.png  # top30 labels
 analyse.py
 ```
