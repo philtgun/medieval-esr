@@ -113,9 +113,9 @@ def generate_annotations(annotations, filter_stats, filter_threshold, tracks_to_
             tags_string = '\t'.join([prefix + '---' + tag for tag in tracks_to_tags[track] & tags])
             if track not in annotations:
                 annotations[track] = {
-                    'track_id': 'TRACK_' + str(track).zfill(digits_track),
-                    'artist_id': 'ARTIST_' + str(tracks_to_artists[track]).zfill(digits_artist),
-                    'album_id': 'ALBUM_' + str(tracks_to_albums[track]).zfill(digits_album),
+                    'track_id': 'track_' + str(track).zfill(digits_track),
+                    'artist_id': 'artist_' + str(tracks_to_artists[track]).zfill(digits_artist),
+                    'album_id': 'album_' + str(tracks_to_albums[track]).zfill(digits_album),
                     'path': path.join('{:02}'.format(track % 100), '{}.flac'.format(track)),
                     'tags': tags_string
                 }
