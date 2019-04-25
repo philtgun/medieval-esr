@@ -13,7 +13,7 @@ TYPES = [
 ]
 
 TYPE_PREFIXES = {
-    'vartags': 'moodsnthemes'
+    'vartags': 'mood/theme'
 }
 
 SOURCES = [
@@ -95,9 +95,17 @@ def filter_tags(df, threshold):
     return set(df['tag'])
 
 
+def get_max_number_length(values):
+    return len(str(max(values)))
+
+
 def generate_annotations(annotations, filter_stats, filter_threshold, tracks_to_tags, tracks_to_albums,
                          tracks_to_artists, prefix):
     tags = filter_tags(filter_stats, filter_threshold)
+
+    digits_track = get_max_number_length(tracks_to_tags.keys())
+    digits_album = get_max_number_length(tracks_to_albums.values())
+    digits_artist = get_max_number_length(tracks_to_artists.values())
 
     for track in tracks_to_artists:
         track_tags = tracks_to_tags[track] & tags
@@ -105,9 +113,9 @@ def generate_annotations(annotations, filter_stats, filter_threshold, tracks_to_
             tags_string = '\t'.join([prefix + '---' + tag for tag in tracks_to_tags[track] & tags])
             if track not in annotations:
                 annotations[track] = {
-                    'track_id': track,
-                    'artist_id': tracks_to_artists[track],
-                    'album_id': tracks_to_albums[track],
+                    'track_id': 'TRACK_' + str(track).zfill(digits_track),
+                    'artist_id': 'ARTIST_' + str(tracks_to_artists[track]).zfill(digits_artist),
+                    'album_id': 'ALBUM_' + str(tracks_to_albums[track]).zfill(digits_album),
                     'path': path.join('{:02}'.format(track % 100), '{}.flac'.format(track)),
                     'tags': tags_string
                 }
@@ -118,8 +126,8 @@ def generate_annotations(annotations, filter_stats, filter_threshold, tracks_to_
 
 
 def annotations_to_df(annotations):
-    df = pd.DataFrame(annotations.values(), columns=['track_id', 'artist_id', 'album_id', 'path', 'tags'])
-    df.set_index('track_id', drop=True)
+    df = pd.DataFrame.from_dict(annotations, columns=['track_id', 'artist_id', 'album_id', 'path', 'tags'],
+                                orient='index')
     df.sort_index()
     return df
 
@@ -132,11 +140,12 @@ def main(input_csv, api_input, directory, prefix, types, sources, annotations, t
     tags_to_artists = get_tags_to_collections(tags_to_tracks, tracks_to_artists)
     tags_to_tracks_subset = get_tags_to_collections(tags_to_tracks, tracks_to_albums.keys())
 
-    get_tags_stats(tags_to_tracks).to_csv(path.join(directory, prefix + '_tracks_all.csv'))
-    get_tags_stats(tags_to_tracks_subset).to_csv(path.join(directory, prefix + '_tracks.csv'))
-    get_tags_stats(tags_to_albums).to_csv(path.join(directory, prefix + '_albums.csv'))
+    filename_prefix = prefix.replace('/', '_')
+    get_tags_stats(tags_to_tracks).to_csv(path.join(directory, filename_prefix + '_tracks_all.csv'))
+    get_tags_stats(tags_to_tracks_subset).to_csv(path.join(directory, filename_prefix + '_tracks.csv'))
+    get_tags_stats(tags_to_albums).to_csv(path.join(directory, filename_prefix + '_albums.csv'))
     artists = get_tags_stats(tags_to_artists)
-    artists.to_csv(path.join(directory, prefix + '_artists.csv'))
+    artists.to_csv(path.join(directory, filename_prefix + '_artists.csv'))
 
     return generate_annotations(annotations, artists, threshold, tracks_all_to_tags, tracks_to_albums, tracks_to_artists, prefix)
 
@@ -156,7 +165,7 @@ if __name__ == '__main__':
                         help='Types of metadata that are processed')
     parser.add_argument('-s', '--sources', nargs='+', choices=SOURCES, default=['artist'],
                         help='Types of metadata that are considered')
-    parser.add_argument('-r', '--threshold', default=10, type=int,
+    parser.add_argument('-r', '--threshold', default=50, type=int,
                         help='Tags with number of unique artists less than this value will not be considered for '
                              'annotations')
     args = parser.parse_args()
@@ -168,5 +177,5 @@ if __name__ == '__main__':
              annotations, args.threshold)
 
     annotations_to_df(annotations).to_csv(path.join(args.directory, args.prefix + '_annotations.csv'), sep='\t',
-                                          quoting=csv.QUOTE_NONE, escapechar=' ', index=False)  # TODO: make it less hacky
-
+                                          quoting=csv.QUOTE_NONE, escapechar=' ', index=False, # TODO: make it less hacky
+                                          header=['TRACK_ID', 'ARTIST_ID', 'ALBUM_ID', 'PATH', 'TAGS'])
