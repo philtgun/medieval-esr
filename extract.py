@@ -161,8 +161,10 @@ def add_durations(annotations_df, duration_filename, duration_threshold):
     df = df.set_index('path')
 
     df = annotations_df.join(df)
+    df = df.dropna()
     df = df[['track_id', 'artist_id', 'album_id', 'path', 'duration', 'tags']]
     return df
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Computes the top tags from Jamendo metadata.',
@@ -195,11 +197,12 @@ if __name__ == '__main__':
         tag_prefix = TYPE_PREFIXES.get(tag_type, tag_type)
         main(args.input, args.api_input, args.directory, tag_prefix, [tag_type], args.sources,
              annotations, args.threshold)
-
-    print('\nTotal tracks: {}'.format(len(annotations)))
+    print('Total tracks after tag thresholding: {}\n'.format(len(annotations)))
 
     annotations_df = annotations_to_df(annotations)
     annotations_df = add_durations(annotations_df, args.duration_input, args.duration_threshold)
+    print('Total tracks after duration thresholding: {}\n'.format(len(annotations_df)))
+
     annotations_df.to_csv(path.join(args.directory, args.prefix + '_annotations.csv'), sep='\t',
                           quoting=csv.QUOTE_NONE, escapechar=' ', index=False,  # TODO: make it less hacky
                           header=['TRACK_ID', 'ARTIST_ID', 'ALBUM_ID', 'PATH', 'DURATION', 'TAGS'])
