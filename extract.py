@@ -116,7 +116,7 @@ def generate_annotations(annotations, filter_stats, filter_threshold, tracks_to_
                     'track_id': 'track_' + str(track).zfill(digits_track),
                     'artist_id': 'artist_' + str(tracks_to_artists[track]).zfill(digits_artist),
                     'album_id': 'album_' + str(tracks_to_albums[track]).zfill(digits_album),
-                    'path': path.join('{:02}'.format(track % 100), '{}.flac'.format(track)),
+                    'path': path.join('{:02}'.format(track % 100), '{}.mp3'.format(track)),
                     'tags': tags_string
                 }
             else:
@@ -150,6 +150,20 @@ def main(input_csv, api_input, directory, prefix, types, sources, annotations, t
     return generate_annotations(annotations, artists, threshold, tracks_all_to_tags, tracks_to_albums, tracks_to_artists, prefix)
 
 
+def add_durations(annotations_df, duration_filename, duration_threshold):
+    df = pd.read_csv(duration_filename, sep='\t', header=None, names=['path', 'duration'])
+    prev_len = len(df)
+    df = df[df['duration'] > duration_threshold]
+    print("Filtered {} tracks from {}: {}".format(prev_len - len(df), prev_len, len(df)))
+
+    df['duration'] = df['duration'].apply(lambda x: float('{:.1f}'.format(x)))  # truncate digits after comma to 1
+    df['path'] = df['path'].apply(lambda x: int(x.split('/')[1].split('.')[0]))  # transform path to id
+    df = df.set_index('path')
+
+    df = annotations_df.join(df)
+    df = df[['track_id', 'artist_id', 'album_id', 'path', 'duration', 'tags']]
+    return df
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Computes the top tags from Jamendo metadata.',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -168,6 +182,12 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--threshold', default=50, type=int,
                         help='Tags with number of unique artists less than this value will not be considered for '
                              'annotations')
+
+    parser.add_argument('--duration-input', default='data/computed_durations.tsv',
+                        help='Input TSV file tha is formatted like this: path, duration')
+    parser.add_argument('--duration-threshold', type=float, default=30,
+                        help='All files with the duration less than this value will be removed')
+
     args = parser.parse_args()
 
     annotations = {}
@@ -176,6 +196,10 @@ if __name__ == '__main__':
         main(args.input, args.api_input, args.directory, tag_prefix, [tag_type], args.sources,
              annotations, args.threshold)
 
-    annotations_to_df(annotations).to_csv(path.join(args.directory, args.prefix + '_annotations.csv'), sep='\t',
-                                          quoting=csv.QUOTE_NONE, escapechar=' ', index=False, # TODO: make it less hacky
-                                          header=['TRACK_ID', 'ARTIST_ID', 'ALBUM_ID', 'PATH', 'TAGS'])
+    print('\nTotal tracks: {}'.format(len(annotations)))
+
+    annotations_df = annotations_to_df(annotations)
+    annotations_df = add_durations(annotations_df, args.duration_input, args.duration_threshold)
+    annotations_df.to_csv(path.join(args.directory, args.prefix + '_annotations.csv'), sep='\t',
+                          quoting=csv.QUOTE_NONE, escapechar=' ', index=False,  # TODO: make it less hacky
+                          header=['TRACK_ID', 'ARTIST_ID', 'ALBUM_ID', 'PATH', 'DURATION', 'TAGS'])
