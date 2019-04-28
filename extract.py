@@ -132,16 +132,16 @@ def annotations_to_df(annotations):
     return df
 
 
-def main(input_csv, api_input, directory, prefix, types, sources, annotations, threshold):
+def main(input_csv, api_input, directory, prefix, types, sources, annotations, threshold, durations):
     print("- " + ", ".join(types))
     tags_to_tracks, tracks_all_to_tags = get_tags_tracks(input_csv, types, sources)
+    tags_to_tracks = get_tags_to_collections(tags_to_tracks, set(durations.index))  # filter by duration
     tracks_to_albums, tracks_to_artists = get_tracks_mapping(api_input, tracks_all_to_tags.keys())
     tags_to_albums = get_tags_to_collections(tags_to_tracks, tracks_to_albums)
     tags_to_artists = get_tags_to_collections(tags_to_tracks, tracks_to_artists)
     tags_to_tracks_subset = get_tags_to_collections(tags_to_tracks, tracks_to_albums.keys())
 
     filename_prefix = prefix.replace('/', '_')
-    get_tags_stats(tags_to_tracks).to_csv(path.join(directory, filename_prefix + '_tracks_all.csv'))
     get_tags_stats(tags_to_tracks_subset).to_csv(path.join(directory, filename_prefix + '_tracks.csv'))
     get_tags_stats(tags_to_albums).to_csv(path.join(directory, filename_prefix + '_albums.csv'))
     artists = get_tags_stats(tags_to_artists)
@@ -150,7 +150,7 @@ def main(input_csv, api_input, directory, prefix, types, sources, annotations, t
     return generate_annotations(annotations, artists, threshold, tracks_all_to_tags, tracks_to_albums, tracks_to_artists, prefix)
 
 
-def add_durations(annotations_df, duration_filename, duration_threshold):
+def get_durations(duration_filename, duration_threshold):
     df = pd.read_csv(duration_filename, sep='\t', header=None, names=['path', 'duration'])
     prev_len = len(df)
     df = df[df['duration'] > duration_threshold]
@@ -159,11 +159,14 @@ def add_durations(annotations_df, duration_filename, duration_threshold):
     df['duration'] = df['duration'].apply(lambda x: float('{:.1f}'.format(x)))  # truncate digits after comma to 1
     df['path'] = df['path'].apply(lambda x: int(x.split('/')[1].split('.')[0]))  # transform path to id
     df = df.set_index('path')
-
-    df = annotations_df.join(df)
-    df = df.dropna()
-    df = df[['track_id', 'artist_id', 'album_id', 'path', 'duration', 'tags']]
     return df
+
+
+def add_durations(annotations_df, duration_df):
+    duration_df = annotations_df.join(duration_df)
+    duration_df = duration_df.dropna()
+    duration_df = duration_df[['track_id', 'artist_id', 'album_id', 'path', 'duration', 'tags']]
+    return duration_df
 
 
 if __name__ == '__main__':
@@ -192,15 +195,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    durations_df = get_durations(args.duration_input, args.duration_threshold)
     annotations = {}
     for tag_type in args.types:
         tag_prefix = TYPE_PREFIXES.get(tag_type, tag_type)
         main(args.input, args.api_input, args.directory, tag_prefix, [tag_type], args.sources,
-             annotations, args.threshold)
+             annotations, args.threshold, durations_df)
     print('Total tracks after tag thresholding: {}\n'.format(len(annotations)))
 
     annotations_df = annotations_to_df(annotations)
-    annotations_df = add_durations(annotations_df, args.duration_input, args.duration_threshold)
+    annotations_df = add_durations(annotations_df, durations_df)
     print('Total tracks after duration thresholding: {}\n'.format(len(annotations_df)))
 
     annotations_df.to_csv(path.join(args.directory, args.prefix + '_annotations.csv'), sep='\t',
