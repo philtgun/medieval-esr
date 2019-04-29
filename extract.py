@@ -132,10 +132,11 @@ def annotations_to_df(annotations):
     return df
 
 
-def main(input_csv, api_input, directory, prefix, types, sources, annotations, threshold, durations):
+def main(input_csv, api_input, directory, prefix, types, sources, annotations, threshold, durations=None):
     print("- " + ", ".join(types))
     tags_to_tracks, tracks_all_to_tags = get_tags_tracks(input_csv, types, sources)
-    tags_to_tracks = get_tags_to_collections(tags_to_tracks, set(durations.index))  # filter by duration
+    if durations is not None:
+        tags_to_tracks = get_tags_to_collections(tags_to_tracks, set(durations.index))  # filter by duration
     tracks_to_albums, tracks_to_artists = get_tracks_mapping(api_input, tracks_all_to_tags.keys())
     tags_to_albums = get_tags_to_collections(tags_to_tracks, tracks_to_albums)
     tags_to_artists = get_tags_to_collections(tags_to_tracks, tracks_to_artists)
@@ -188,7 +189,7 @@ if __name__ == '__main__':
                         help='Tags with number of unique artists less than this value will not be considered for '
                              'annotations')
 
-    parser.add_argument('--duration-input', default='data/computed_durations.tsv',
+    parser.add_argument('--duration-input', default='data/durations_new.csv',
                         help='Input TSV file tha is formatted like this: path, duration')
     parser.add_argument('--duration-threshold', type=float, default=30,
                         help='All files with the duration less than this value will be removed')
